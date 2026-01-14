@@ -1,8 +1,7 @@
-﻿using Microsoft.Build.Tasks.Deployment.Bootstrapper;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace GestiónDeInventario.Models;
+namespace GestionDeInventario.Models;
 
 public class EntradasDetalle
 {

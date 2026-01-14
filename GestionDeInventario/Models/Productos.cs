@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace GestiónDeInventario.Models;
+namespace GestionDeInventario.Models;
 
 public class Productos
 {
