@@ -1,12 +1,10 @@
-﻿using GestiónDeInventario.Data;
-using GestionDeInventario.Data;
-using GestiónDeInventario.Models;
+﻿using GestionDeInventario.Data;
+using GestionDeInventario.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
-using Microsoft.Build.Tasks.Deployment.Bootstrapper;
 using Microsoft.EntityFrameworkCore;
 
-namespace GestiónDeInventario.DAL
+namespace GestionDeInventario.DAL
 {
     public class Contexto : IdentityDbContext<ApplicationUser>
     {
