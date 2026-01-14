@@ -1,6 +1,6 @@
 ﻿using BlazorBootstrap;
 
-namespace EntradaDeInventario.Extensors;
+namespace GestionDeInventario.Extensors;
 
 public static class ToastServiceExtensions
 {
