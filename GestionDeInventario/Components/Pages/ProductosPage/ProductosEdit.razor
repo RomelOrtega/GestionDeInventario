@@ -1,0 +1,175 @@
+﻿@page "/Productos/Edit/{ProductoId:int}"
+@using BlazorBootstrap
+@using GestionDeInventario.Models
+@using GestionDeInventario.Services
+@using GestionDeInventario.Extensors
+@using Microsoft.AspNetCore.Authorization
+@inject ProductosService productosService
+@inject ToastService ToastService
+@inject NavigationManager navigationManager
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+<PageTitle>Editar Producto</PageTitle>
+
+@if (producto != null)
+{
+    <div class="container mt-4">
+        <div class="card shadow-lg">
+            <div class="card-header bg-light text-center">
+                <h4 class="fw-bold mb-0">Editar Producto</h4>
+            </div>
+
+            <EditForm Model="producto" OnValidSubmit="GuardarCambios">
+                <DataAnnotationsValidator />
+
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Descripción:</label>
+                        <InputText class="form-control" @bind-Value="producto.Descripcion" />
+                        <ValidationMessage For="@(() => producto.Descripcion)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Costo:</label>
+                        <InputNumber class="form-control" @bind-Value="producto.Costo" />
+                        <ValidationMessage For="@(() => producto.Costo)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Precio:</label>
+                        <InputNumber class="form-control" @bind-Value="producto.Precio" />
+                        <ValidationMessage For="@(() => producto.Precio)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Existencia:</label>
+                        <input class="form-control bg-light text-secondary" value="@producto.Existencia" readonly />
+                        <small class="text-muted">La existencia se actualizará automáticamente.</small>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(mensajeError))
+                    {
+                        <div class="alert alert-danger mt-3">@mensajeError</div>
+                    }
+                </div>
+
+                <div class="card-footer text-center">
+                    <a href="/Productos/Index" class="btn btn-secondary me-2">
+                        <span class="bi bi-arrow-left"></span> Volver
+                    </a>
+                    <button type="submit" class="btn btn-primary me-2">
+                        <span class="bi bi-save"></span> Guardar Cambios
+                    </button>
+                    <button type="button" class="btn btn-danger" @onclick="() => MostrarModalEliminar = true">
+                        Eliminar
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+else
+{
+    <p class="text-center mt-5">Cargando datos...</p>
+}
+
+@if (MostrarModalEliminar && producto != null)
+{
+    <div class="container">
+        <div class="card shadow-lg">
+            <div class="card-header bg-primary text-white border-bottom-0">
+                <h5 class="card-title mb-0">
+                    Confirmar Eliminación
+                </h5>
+            </div>
+
+            <div class="card-body py-3">
+                <h6 class="text-danger mb-2">
+                    ¿Desea eliminar este producto?
+                </h6>
+
+                <ul class="list-unstyled mb-0">
+                    <li>
+                        <strong>Descripción:</strong> @producto.Descripcion
+                    </li>
+                </ul>
+
+                @if (!string.IsNullOrWhiteSpace(mensajeErrorModal))
+                {
+                    <div class="alert alert-danger mt-3">
+                        @mensajeErrorModal
+                    </div>
+                }
+            </div>
+
+            <div class="card-footer bg-white d-flex gap-2 p-3">
+                <button type="button"
+                        class="btn btn-secondary"
+                        @onclick="() => MostrarModalEliminar = false">
+                    <i class="bi bi-arrow-left-circle me-1"></i>
+                    Cancelar
+                </button>
+
+                <button type="button"
+                        class="btn btn-outline-danger"
+                        @onclick="ReafirmarEliminacion">
+                    <i class="bi bi-trash me-1"></i>
+                    Eliminar
+                </button>
+            </div>
+        </div>
+    </div>
+}
+@code {
+    [Parameter] public int ProductoId { get; set; }
+    private Productos? producto;
+    private bool MostrarModalEliminar { get; set; } = false;
+    private string mensajeError = string.Empty;
+    private string mensajeErrorModal = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (ProductoId > 0)
+        {
+            producto = await productosService.Buscar(ProductoId);
+        }
+        else
+        {
+            producto = new Productos();
+        }
+    }
+
+    private async Task GuardarCambios()
+    {
+        if (producto == null) return;
+
+        var modificado = await productosService.Guardar(producto);
+
+        if (modificado)
+        {
+            ToastService.ShowSuccess("Cambios guardados correctamente");
+            navigationManager.NavigateTo("/Productos/Index");
+        }
+        else
+        {
+            mensajeError = "No se pudo modificar correctamente.";
+        }
+    }
+
+    private async Task ReafirmarEliminacion()
+    {
+        var eliminado = await productosService.Eliminar(ProductoId);
+
+        if (eliminado)
+        {
+            MostrarModalEliminar = false;
+            ToastService.ShowSuccess("Producto eliminado correctamente");
+            navigationManager.NavigateTo("/Productos/Index");
+        }
+        else
+        {
+            mensajeErrorModal = "No se puede eliminar el producto porque tiene entradas asociadas.";
+        }
+    }
+}
