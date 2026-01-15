@@ -1,0 +1,329 @@
+﻿@page "/Entradas/Edit/{EntradaId:int}"
+@using BlazorBootstrap
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using GestionDeInventario.DAL
+@using GestionDeInventario.Extensors
+@using GestionDeInventario.Models
+@using GestionDeInventario.Services
+@inject IDbContextFactory<Contexto> DbFactory
+@inject EntradasService entradasService
+@inject NavigationManager navigationManager
+@inject ToastService ToastService
+@rendermode InteractiveServer
+@attribute [Authorize]
+
+<PageTitle>Editar Entrada de Inventario</PageTitle>
+
+@if (entrada != null)
+{
+    <div class="container mt-4">
+        <div class="card shadow-lg">
+            <div class="card-header bg-light text-center">
+                <h4 class="fw-bold mb-0">Editar Entrada de Inventario</h4>
+            </div>
+
+            <EditForm Model="entrada" OnValidSubmit="GuardarCambios">
+                <DataAnnotationsValidator />
+
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Fecha:</label>
+                        <InputDate class="form-control" @bind-Value="entrada.Fecha" />
+                        <ValidationMessage For="@(() => entrada.Fecha)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Concepto:</label>
+                        <InputText class="form-control" @bind-Value="entrada.Concepto" />
+                        <ValidationMessage For="@(() => entrada.Concepto)" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Total:</label>
+                        <input class="form-control bg-light text-secondary"
+                               value="@TotalDisplay"
+                               readonly />
+                    </div>
+
+                    <div class="border border-success rounded p-3 mt-4" style="background-color: white;">
+                        <h5 class="fw-bold mb-3">Detalles de Entrada</h5>
+
+                        <div class="row g-2 align-items-end mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Producto:</label>
+                                <InputSelect class="form-select" @bind-Value="DetalleSeleccionado.ProductoId" @bind-Value:after="OnProductoSeleccionado">
+                                    <option value="0">Seleccione un producto</option>
+                                    @foreach (var producto in ListaProductos)
+                                    {
+                                        <option value="@producto.ProductoId">@producto.Descripcion (Existencia: @producto.Existencia)</option>
+                                    }
+                                </InputSelect>
+                            </div>
+
+                            <div class="col-md-2">
+                                <label class="form-label">Cantidad:</label>
+                                <InputNumber class="form-control" @bind-Value="DetalleSeleccionado.Cantidad" />
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label">Costo:</label>
+                                <input type="number" class="form-control bg-light" value="@DetalleSeleccionado.Costo" readonly />
+                            </div>
+
+                            <div class="col-md-3 d-grid">
+                                <button type="button" class="btn btn-success" @onclick="AgregarDetalle">
+                                    <i class="bi bi-plus-circle me-1"></i> Agregar
+                                </button>
+                            </div>
+                        </div>
+
+                        <table class="table table-bordered align-middle text-center">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Producto</th>
+                                    <th>Cantidad</th>
+                                    <th>Costo</th>
+                                    <th>Importe</th>
+                                    <th>Remover</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (entrada.EntradasDetalle != null && entrada.EntradasDetalle.Count > 0)
+                                {
+                                    @foreach (var detalle in entrada.EntradasDetalle)
+                                    {
+                                        <tr>
+                                            <td>@ListaProductos.FirstOrDefault(p => p.ProductoId == detalle.ProductoId)?.Descripcion</td>
+                                            <td>@detalle.Cantidad</td>
+                                            <td>@detalle.Costo.ToString("C2")</td>
+                                            <td>@((detalle.Cantidad * detalle.Costo).ToString("C2"))</td>
+                                            <td>
+                                                <button type="button" class="btn btn-outline-danger btn-sm"
+                                                        @onclick="() => QuitarDetalle(detalle)">
+                                                    <i class="bi bi-trash me-1"></i> Remover
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                                else
+                                {
+                                    <tr>
+                                        <td colspan="5" class="text-muted">No hay detalles</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(MensajeError))
+                    {
+                        <div class="alert alert-danger mt-3">@MensajeError</div>
+                    }
+                </div>
+
+                <div class="card-footer text-center">
+                    <a href="/Entradas/Index" class="btn btn-secondary me-2">
+                        <span class="bi bi-arrow-left"></span> Volver
+                    </a>
+                    <button type="submit" class="btn btn-primary me-2">
+                        <span class="bi bi-save"></span> Guardar Cambios
+                    </button>
+                    <button type="button" class="btn btn-danger" @onclick="() => MostrarModalEliminar = true">
+                        Eliminar
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+else
+{
+    <p class="text-center mt-5">Cargando datos...</p>
+}
+
+@if (MostrarModalEliminar)
+{
+    <div class="container">
+        <div class="card shadow-lg">
+            <div class="card-header bg-primary text-white border-bottom-0">
+                <h5 class="card-title mb-0">Eliminar Entrada</h5>
+            </div>
+
+            <div class="card-body py-3">
+                <h6 class="card-title text-danger mb-2">
+                    ¿Desea eliminar esta entrada?
+                </h6>
+
+                <p class="mb-1">
+                    <strong>@entrada?.Concepto</strong>
+                </p>
+
+                <p class="text-warning mb-0">
+                    <small>
+                        Nota: Se revertirán las existencias de los productos asociados.
+                    </small>
+                </p>
+            </div>
+
+            <div class="card-footer bg-white d-flex gap-2 p-3">
+                <button type="button"
+                        class="btn btn-secondary"
+                        @onclick="() => MostrarModalEliminar = false">
+                    <i class="bi bi-arrow-left-circle me-1"></i>
+                    Volver
+                </button>
+
+                <button type="button"
+                        class="btn btn-outline-danger"
+                        @onclick="ConfirmarEliminacion">
+                    <i class="bi bi-trash me-1"></i>
+                    Eliminar
+                </button>
+            </div>
+        </div>
+    </div>
+}
+@code {
+    [Parameter] public int EntradaId { get; set; }
+    private Entradas? entrada;
+    private EntradasDetalle DetalleSeleccionado { get; set; } = new();
+    private List<Productos> ListaProductos { get; set; } = new();
+    private bool MostrarModalEliminar { get; set; } = false;
+    public string MensajeError { get; set; } = string.Empty;
+
+    private string TotalDisplay
+    {
+        get
+        {
+            if (entrada == null) return 0.ToString("C2");
+
+            if (entrada.EntradasDetalle != null && entrada.EntradasDetalle.Any())
+            {
+                decimal suma = entrada.EntradasDetalle.Sum(d => d.Cantidad * d.Costo);
+                return suma.ToString("C2");
+            }
+
+            return 0.ToString("C2");
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var contexto = await DbFactory.CreateDbContextAsync();
+        ListaProductos = await contexto.Productos.ToListAsync();
+
+        if (EntradaId > 0)
+        {
+            entrada = await entradasService.Buscar(EntradaId);
+            if (entrada != null && entrada.EntradasDetalle == null)
+                entrada.EntradasDetalle = new List<EntradasDetalle>();
+        }
+        else
+        {
+            entrada = new Entradas
+            {
+                Fecha = DateTime.Now,
+                EntradasDetalle = new List<EntradasDetalle>()
+            };
+        }
+    }
+
+    private void OnProductoSeleccionado()
+    {
+        var producto = ListaProductos.FirstOrDefault(p => p.ProductoId == DetalleSeleccionado.ProductoId);
+        if (producto != null)
+        {
+            DetalleSeleccionado.Costo = producto.Costo;
+        }
+    }
+
+    private void AgregarDetalle()
+    {
+        MensajeError = string.Empty;
+
+        if (DetalleSeleccionado == null || DetalleSeleccionado.ProductoId <= 0)
+        {
+            MensajeError = "Seleccione un producto válido.";
+            return;
+        }
+        if (DetalleSeleccionado.Cantidad <= 0)
+        {
+            MensajeError = "La cantidad del detalle debe ser mayor a 0.";
+            return;
+        }
+
+        var existente = entrada?.EntradasDetalle.FirstOrDefault(d => d.ProductoId == DetalleSeleccionado.ProductoId);
+        if (existente != null)
+        {
+            MensajeError = "Este producto ya está agregado. Debe elimínarlo si desea modificar la cantidad.";
+            return;
+        }
+
+        if (entrada?.EntradasDetalle == null)
+            entrada.EntradasDetalle = new List<EntradasDetalle>();
+
+        entrada.EntradasDetalle.Add(new EntradasDetalle
+        {
+            ProductoId = DetalleSeleccionado.ProductoId,
+            Cantidad = DetalleSeleccionado.Cantidad,
+            Costo = DetalleSeleccionado.Costo
+        });
+
+        DetalleSeleccionado = new EntradasDetalle();
+    }
+
+    private void QuitarDetalle(EntradasDetalle detalle)
+    {
+        if (entrada?.EntradasDetalle == null) return;
+
+        entrada.EntradasDetalle.Remove(detalle);
+
+        DetalleSeleccionado = new EntradasDetalle
+        {
+            ProductoId = detalle.ProductoId,
+            Cantidad = detalle.Cantidad,
+            Costo = detalle.Costo
+        };
+    }
+
+    private async Task GuardarCambios()
+    {
+        if (entrada == null) return;
+
+        if (!entrada.EntradasDetalle.Any())
+        {
+            MensajeError = "Debe agregar al menos un producto al detalle.";
+            return;
+        }
+
+        var modificado = await entradasService.Guardar(entrada);
+
+        if (modificado)
+        {
+            ToastService.ShowSuccess("Cambios guardados correctamente");
+            navigationManager.NavigateTo("/Entradas/Index");
+        }
+        else
+        {
+            MensajeError = "No se pudo modificar correctamente.";
+        }
+    }
+
+    private async Task ConfirmarEliminacion()
+    {
+        var eliminado = await entradasService.Eliminar(EntradaId);
+
+        if (eliminado)
+        {
+            MostrarModalEliminar = false;
+            ToastService.ShowSuccess("Entrada eliminada correctamente");
+            navigationManager.NavigateTo("/Entradas/Index");
+        }
+        else
+        {
+            MensajeError = "No se pudo eliminar correctamente.";
+        }
+    }
+}
